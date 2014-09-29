@@ -4,11 +4,11 @@ ELF=$(notdir $(CURDIR)).elf
 
 # Tool path
 
-TOOLROOT=/l/arm/codesourcery/bin
+TOOLROOT=/home/brian/Projects/raspberrypi/bakingpi/arm-2008q3/bin
 
 # Library path
 
-LIBROOT=/l/arm/STM32F10x_StdPeriph_Lib_V3.5.0
+LIBROOT=/home/brian/Projects/stm/STM32F10x_StdPeriph_Lib_V3.5.0
 
 # Tools
 
