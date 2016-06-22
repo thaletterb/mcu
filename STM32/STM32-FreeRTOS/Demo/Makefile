@@ -5,9 +5,18 @@ TEMPLATEROOT = ..
 CFLAGS  = -O1 -g
 ASFLAGS = -g 
 
+FreeRTOS = /home/brian/github/mcu/STM32/FreeRTOSv9.0.0/FreeRTOS/Source
+
+CFLAGS += -I$(FreeRTOS)/include -DGCC_ARMCM3
+
+vpath %.c $(FreeRTOS)/
+vpath %.c $(FreeRTOS)/portable/MemMang
+vpath %.c $(FreeRTOS)/portable/GCC/ARM_CM3
+
 # object files
 
 OBJS=  $(STARTUP) main.o
+OBJS+= tasks.o queue.o list.o timers.o heap_1.o port.o
 
 # include common make file
 
