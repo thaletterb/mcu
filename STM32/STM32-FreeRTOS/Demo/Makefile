@@ -14,12 +14,11 @@ vpath %.c $(FreeRTOS)/portable/MemMang
 vpath %.c $(FreeRTOS)/portable/GCC/ARM_CM3
 
 # object files
-
 OBJS=  $(STARTUP) main.o
 OBJS+= tasks.o queue.o list.o timers.o heap_1.o port.o
+OBJS+= stm32f10x_gpio.o stm32f10x_rcc.o stm32f10x_i2c.o stm32f10x_tim.o
 
 # include common make file
-
 include $(TEMPLATEROOT)/Makefile.common
 
 
