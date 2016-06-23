@@ -40,6 +40,7 @@ void vApplicationMallocFailedHook(void)
 }
 
 /** @brief: Thread 1
+ *          Toggles GPIOC Pin 9 every 300ms
  *
  */
 static void Thread1(void *arg)
@@ -49,6 +50,21 @@ static void Thread1(void *arg)
     {
         vTaskDelay(300/portTICK_RATE_MS);
         GPIO_WriteBit(GPIOC, GPIO_Pin_9, dir ? Bit_SET : Bit_RESET);
+        dir = 1-dir;
+    }
+}
+
+/** @brief: Thread 2
+ *          Toggles GPIOC Pin 8 every 500ms
+ *
+ */
+static void Thread2(void *arg)
+{
+    int dir = 0;
+    while(1)
+    {
+        vTaskDelay(500/portTICK_RATE_MS);
+        GPIO_WriteBit(GPIOC, GPIO_Pin_8, dir ? Bit_SET : Bit_RESET);
         dir = 1-dir;
     }
 }
@@ -66,13 +82,15 @@ int main(void)
     // Configure Pins
     // Pin PC9 must be configured as an output
     GPIO_StructInit(&GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
+    GPIO_InitStructure.GPIO_Pin = (GPIO_Pin_9|GPIO_Pin_8);
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_Init(GPIOC, &GPIO_InitStructure);
 
     // Create tasks
+    //xTaskCreate(Function To Execute, Name, Stack Size, Parameter, Scheduling Priority, Storage for handle)
     xTaskCreate(Thread1, "Thread 1", 128, NULL, tskIDLE_PRIORITY+1, NULL);
+    xTaskCreate(Thread2, "Thread 2", 128, NULL, tskIDLE_PRIORITY+1, NULL);
 
     // Start scheduler
     vTaskStartScheduler();
