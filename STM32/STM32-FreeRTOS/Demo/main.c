@@ -8,14 +8,11 @@
 #include <stm32f10x_gpio.h>
 #include <stm32f10x_tim.h>
 
-int i = 0;
-int off = 5;
+#include "my_i2c.h"
+#include "my_ssd1306.h"
 
-void inc(void){
-  i += off;
-}
-
-/** @brief: Gets an idle event from the scheduler
+/** @brief: The user defined idle hook (calback function) for the idle task
+ *          TODO: Implement putting the processor to low power state
  *          #define configUSE_IDLE_HOOK             1
  **/
 void vApplicationIdleHook(void)
@@ -41,7 +38,6 @@ void vApplicationMallocFailedHook(void)
 
 /** @brief: Thread 1
  *          Toggles GPIOC Pin 9 every 300ms
- *
  */
 static void Thread1(void *arg)
 {
@@ -56,7 +52,6 @@ static void Thread1(void *arg)
 
 /** @brief: Thread 2
  *          Toggles GPIOC Pin 8 every 500ms
- *
  */
 static void Thread2(void *arg)
 {
@@ -69,9 +64,13 @@ static void Thread2(void *arg)
     }
 }
 
-int main(void)
-{
 
+/** @brief: Inits the required HW
+*           GPIOC Pins 8 and 9 (LEDS)
+*/
+static void init_hw(void)
+{
+    /** Init HW */
     // Configure GPIOC Pin 9 as output
     GPIO_InitTypeDef GPIO_InitStructure;
 
@@ -87,19 +86,30 @@ int main(void)
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_Init(GPIOC, &GPIO_InitStructure);
 
+    // Init I2C
+    init_i2c1_peripheral(I2C1);                                               // To Do - Move All this into init_i2c1_peripheral()
+
+    // Init SSD1306 OLED
+    ssd1306_i2c_init(I2C1, SSD1306_I2C_SLAVE_ADDRESS8);
+    ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
+
+    /** End init hw */
+
+} 
+
+
+int main(void)
+{
+
+    init_hw();
+
     // Create tasks
     //xTaskCreate(Function To Execute, Name, Stack Size, Parameter, Scheduling Priority, Storage for handle)
     xTaskCreate(Thread1, "Thread 1", 128, NULL, tskIDLE_PRIORITY+1, NULL);
     xTaskCreate(Thread2, "Thread 2", 128, NULL, tskIDLE_PRIORITY+1, NULL);
 
-    // Start scheduler
+    // Start scheduler. Note - Scheduler never ends
     vTaskStartScheduler();
-
-    // Scheduler never ends
-
-    while (1) {
-        inc();
-    }
 }
 
 #ifdef USE_FULL_ASSERT
