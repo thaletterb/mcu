@@ -1,6 +1,7 @@
 #include "FreeRTOSConfig.h"     // FreeRTOS header files
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
 
 #include "stm32f10x.h"          // STM32VL headers
 #include <stm32f10x_i2c.h>
@@ -11,30 +12,7 @@
 #include "my_i2c.h"
 #include "my_ssd1306.h"
 
-/** @brief: The user defined idle hook (calback function) for the idle task
- *          TODO: Implement putting the processor to low power state
- *          #define configUSE_IDLE_HOOK             1
- **/
-void vApplicationIdleHook(void)
-{
-
-}
-
-/** @brief: Stack Overflow event handler
- *          #define configCHECK_FOR_STACK_OVERFLOW
- */
-void vApplicationStackOverflowHook(void)
-{
-
-}
-
-/** @brief: Malloc failed event handler
- *          #define configUSE_MALLOC_FAILED_HOOK    1
- */
-void vApplicationMallocFailedHook(void)
-{
-
-}
+xSemaphoreHandle ssd1306_i2c_write_mutex;       // A mutex to control write access to the TWI bus
 
 /** @brief: Thread 1
  *          Toggles GPIOC Pin 9 every 300ms
@@ -44,9 +22,16 @@ static void Thread1(void *arg)
     int dir = 0;
     while(1)
     {
-        vTaskDelay(300/portTICK_RATE_MS);
-        GPIO_WriteBit(GPIOC, GPIO_Pin_9, dir ? Bit_SET : Bit_RESET);
-        dir = 1-dir;
+            vTaskDelay(300/portTICK_RATE_MS);
+        if(xSemaphoreTake(ssd1306_i2c_write_mutex, 600) == pdTRUE){
+            GPIO_WriteBit(GPIOC, GPIO_Pin_9, dir ? Bit_SET : Bit_RESET);
+            dir = 1-dir;
+
+            ssd1306_draw_string_to_buffer(0, 2, "Thread 1", global_display_buffer);
+
+            ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
+            xSemaphoreGive(ssd1306_i2c_write_mutex);
+        }
     }
 }
 
@@ -58,9 +43,15 @@ static void Thread2(void *arg)
     int dir = 0;
     while(1)
     {
-        vTaskDelay(500/portTICK_RATE_MS);
-        GPIO_WriteBit(GPIOC, GPIO_Pin_8, dir ? Bit_SET : Bit_RESET);
-        dir = 1-dir;
+            vTaskDelay(500/portTICK_RATE_MS);
+        if(xSemaphoreTake(ssd1306_i2c_write_mutex, 1500) == pdTRUE){
+            GPIO_WriteBit(GPIOC, GPIO_Pin_8, dir ? Bit_SET : Bit_RESET);
+            dir = 1-dir;
+            ssd1306_draw_string_to_buffer(0, 4, "Thread 2", global_display_buffer);
+
+            ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
+            xSemaphoreGive(ssd1306_i2c_write_mutex);
+        }
     }
 }
 
@@ -92,16 +83,30 @@ static void init_hw(void)
     // Init SSD1306 OLED
     ssd1306_i2c_init(I2C1, SSD1306_I2C_SLAVE_ADDRESS8);
     ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
+    ssd1306_i2c_write_mutex = xSemaphoreCreateMutex();
 
     /** End init hw */
 
 } 
+
+// Timer code
+static __IO uint32_t TimingDelay;
+
+void Delay(uint32_t nTime){
+    TimingDelay = nTime;
+    while(TimingDelay != 0);
+}
 
 
 int main(void)
 {
 
     init_hw();
+
+    ssd1306_clear_display_buffer(global_display_buffer);
+    ssd1306_draw_string_to_buffer(0, 0, "FreeRTOS", global_display_buffer);
+
+    ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
 
     // Create tasks
     //xTaskCreate(Function To Execute, Name, Stack Size, Parameter, Scheduling Priority, Storage for handle)
@@ -120,3 +125,28 @@ void assert_failed(uint8_t* file, uint32_t line){
 }
 #endif
 
+/** Functions with no current implementations **/
+/** @brief: The user defined idle hook (calback function) for the idle task
+ *          TODO: Implement putting the processor to low power state
+ *          #define configUSE_IDLE_HOOK             1
+ **/
+void vApplicationIdleHook(void)
+{
+
+}
+
+/** @brief: Stack Overflow event handler
+ *          #define configCHECK_FOR_STACK_OVERFLOW
+ */
+void vApplicationStackOverflowHook(void)
+{
+
+}
+
+/** @brief: Malloc failed event handler
+ *          #define configUSE_MALLOC_FAILED_HOOK    1
+ */
+void vApplicationMallocFailedHook(void)
+{
+
+}

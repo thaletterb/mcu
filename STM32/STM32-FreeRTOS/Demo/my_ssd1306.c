@@ -208,5 +208,49 @@ int ssd1306_i2c_draw_buffer(I2C_TypeDef *I2Cx, uint8_t slave_address, uint8_t *b
     I2C_GenerateSTOP(I2Cx, ENABLE);
 }
 
+/** @brief: clears all positions of the given display buffer
+*/
+void ssd1306_clear_display_buffer(uint8_t *buffer_pointer){
+// Clear all bytes of the 128x64 display buffer given by buffer_pointer
+    uint8_t x, page_index = 0;
+    #define NUM_PAGES       8
+    #define SSD1306_XRES    128
 
+    for(page_index=0; page_index < NUM_PAGES; page_index++){
+        for(x=0; x<SSD1306_XRES; x++){
+            buffer_pointer[(128*page_index)+x] = 0x00;
+        }
+    }
+}
+/** @brief: draws a char to the display buffer
+*/
+void ssd1306_draw_char_to_buffer(uint8_t x, uint8_t page_num, uint8_t which_char, uint8_t *buffer_pointer){
+// Draws 'which_char' to the display buffer given by buffer_pointer at coord (x, page_num)
+
+    uint8_t i;
+    uint16_t which_byte = 0;
+
+    //GPIO_WriteBit(GPIOC, GPIO_Pin_9, 0);       // Error LED
+
+    //which_byte = x + ((page_num/8)*128);
+    which_byte = x + ((page_num)*128);
+
+    for(i=0; i<5; i++){
+        buffer_pointer[which_byte+i] = Ascii_8x5_font[which_char-ASCII_8x5_OFFSET][i];
+        //turn_on_error_led_pin();       // Error LED
+    }
+
+}
+
+/** @brief: draws a string to the display buffer
+ **/
+void ssd1306_draw_string_to_buffer(uint8_t x, uint8_t page_num, uint8_t *string, uint8_t *buffer_pointer){
+// Draws 'string' to the display buffer (buffer pointer) at coord (x, page_num)
+
+    uint8_t i=0;
+    while(string[i] != 0){
+        ssd1306_draw_char_to_buffer(x+(5*i), page_num, string[i], buffer_pointer);
+        i++;
+    }
+}
 
