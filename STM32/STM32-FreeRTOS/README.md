@@ -21,3 +21,7 @@ An example project configuring FreeRTOS on the STM32VL Discovery board
   - TAKE - removes the mutex's token if available, or blocks the calling thread if not. 
   - GIVE - restores the token. 
     - Counting semaphores can have multiple tokens. 
+
+- TSL2561: 
+  - 7bit address is 0x39 if addr pin is left floating
+  - Write 0x03 to control register (0x00) to power on the device
