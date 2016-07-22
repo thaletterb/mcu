@@ -58,8 +58,8 @@ static void Thread2(void *arg)
         GPIO_WriteBit(GPIOC, GPIO_Pin_8, dir ? Bit_SET : Bit_RESET);
         dir = 1-dir;
         if(xSemaphoreTake(ssd1306_i2c_write_mutex, 1500) == pdTRUE){
-            ssd1306_draw_string_to_buffer(0, 4, "Thread 2:", global_display_buffer);
-            ssd1306_draw_string_to_buffer(50, 4, buffer, global_display_buffer);
+            ssd1306_draw_string_to_buffer(0, 3, "Thread 2:", global_display_buffer);
+            ssd1306_draw_string_to_buffer(50, 3, buffer, global_display_buffer);
             ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
             buffer[0] += 1;
             xSemaphoreGive(ssd1306_i2c_write_mutex);
@@ -68,6 +68,24 @@ static void Thread2(void *arg)
 }
 
 
+/** @brief: Thread 3
+ *          
+ */
+static void Thread3(void *arg)
+{
+    int dir = 0;
+
+    char buffer[2] = "Z";
+    while(1)
+    {
+        vTaskDelay(200/portTICK_RATE_MS);
+        if(xSemaphoreTake(ssd1306_i2c_write_mutex, 1500) == pdTRUE){
+            ssd1306_draw_string_to_buffer(0, 6, "TSL2561:", global_display_buffer);
+            ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
+            xSemaphoreGive(ssd1306_i2c_write_mutex);
+        }
+    }
+}
 
 //xQueueHandle RxQueue, TxQueue;   // Queue for USART RX
 xQueueHandle RxQueue, TxQueue;   // Queue for USART RX
@@ -86,9 +104,7 @@ static void vUSARTTask(void *pvParameters){
     xLastWakeTime=xTaskGetTickCount();
     char ch;
     char buffer[2] = "A";
-    // Create a queue capable of containing 128 characters.
-    //RxQueue = xQueueCreate( configCOM0_RX_BUFFER_LENGTH, sizeof( portCHAR ) );
-    RxQueue = xQueueCreate( 128, sizeof( portCHAR ) );
+    //RxQueue = xQueueCreate( 128, sizeof( portCHAR ) );
     if(RxQueue == NULL){
         // Die
         GPIO_WriteBit(GPIOC, GPIO_Pin_9, Bit_SET);
@@ -215,18 +231,18 @@ static void init_hw(void)
     ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
     ssd1306_i2c_write_mutex = xSemaphoreCreateMutex();
 
-    //// Init TSL2561
-    //#define TSL2561_I2C_SLAVE_ADDRESS7  0x39    // 0x39 is 7bit if ADDR is left floating
-    //uint8_t tsl2561_8bit_address = (TSL2561_I2C_SLAVE_ADDRESS7 << 1);
-    ////uint8_t tsl2561_8bit_address = 0x73;
-    //uint8_t tsl2561_cmd_reg_val = 0;
+    // Init TSL2561
+    #define TSL2561_I2C_SLAVE_ADDRESS7  0x39    // 0x39 is 7bit if ADDR is left floating
+    uint8_t tsl2561_8bit_address = (TSL2561_I2C_SLAVE_ADDRESS7 << 1);
+    //uint8_t tsl2561_8bit_address = 0x73;
+    uint8_t tsl2561_cmd_reg_val = 0;
 
-    //tsl2561_cmd_reg_val |= (1<<7) | (0x00);            // Set the CMD byte to 1 and addr to 0x00 in the Command Register
-    //uint8_t ret_val = i2c_send_command_new(I2C1, tsl2561_8bit_address, 0x03, tsl2561_cmd_reg_val);
-    //if(ret_val)
-    //{
-    //    while(1){}  // If failed - Loop here forever
-    //}
+    tsl2561_cmd_reg_val |= (1<<7) | (0x0);            // Set the CMD byte to 1 and addr to 0x00 in the Command Register
+    uint8_t ret_val = i2c_send_command_new(I2C1, tsl2561_8bit_address, 0x03, tsl2561_cmd_reg_val);
+    if(ret_val)
+    {
+        while(1){}  // If failed - Loop here forever
+    }
     //i2c_read_reg_new(I2C1, tsl2561_8bit_address, 0x00, tsl2561_cmd_reg_val);
 
     // USART1
@@ -248,6 +264,7 @@ int main(void)
 {
 
     ssd1306_i2c_write_mutex = xSemaphoreCreateMutex();
+    RxQueue = xQueueCreate( 128, sizeof( portCHAR ) );
     init_hw();
 
     ssd1306_clear_display_buffer(global_display_buffer);
@@ -263,6 +280,7 @@ int main(void)
     //xTaskCreate(Function To Execute, Name, Stack Size, Parameter, Scheduling Priority, Storage for handle)
     xTaskCreate(Thread1, "Thread 1", 128, NULL, tskIDLE_PRIORITY+1, NULL);
     xTaskCreate(Thread2, "Thread 2", 128, NULL, tskIDLE_PRIORITY+2, NULL);
+    //xTaskCreate(Thread3, "Thread 3", 128, NULL, tskIDLE_PRIORITY+2, NULL);
     //xTaskCreate(vLEDFlashTask, "LEDFlashTask", 128, NULL, tskIDLE_PRIORITY+2, NULL);
     xTaskCreate(vUSARTTask, "vUSART Task", 256, NULL, tskIDLE_PRIORITY, NULL);
 
@@ -308,25 +326,28 @@ void vApplicationMallocFailedHook(void)
 void USART1_IRQHandler(void)
 {
     long xHigherPriorityTaskWoken = pdFALSE;
-    uint8_t ch;
+    uint8_t ch[256];
+    static uint16_t count = 0;
+    //ch[0] = 'H';
+    ch[255] = '\0';
+    
     //if Receive interrupt
     if (USART_GetITStatus(USART1, USART_IT_RXNE) != RESET)
     {
-        ch=(uint8_t)USART_ReceiveData(USART1);
-        //xQueueSendToBackFromISR( RxQueue, &ch, &xHigherPriorityTaskWoken );
-    }
-    if (USART_GetITStatus(USART1, USART_IT_TXE) != RESET)
-    {
-        if( xQueueReceiveFromISR( TxQueue, &ch, &xHigherPriorityTaskWoken ) )
-        {
-             USART_SendData(USART1, ch);
+        ch[count]=(uint8_t)USART_ReceiveData(USART1);
+        count++;
+        if(count > 254){
+            ssd1306_draw_string_to_buffer(0, 4, ch, global_display_buffer);
+            count = 0;
         }
-        else
-        {
-             //disable Transmit Data Register empty interrupt
-             USART_ITConfig(USART1, USART_IT_TXE, DISABLE);
-        }
+        //if(xQueueIsQueueFullFromISR(RxQueue) == pdFALSE)
+        //{
+        //    ssd1306_draw_string_to_buffer(100, 0, ch, global_display_buffer);
+        //    //xQueueSendToBackFromISR( RxQueue, &ch, &xHigherPriorityTaskWoken );
+        //}
     }
+
+    // Blink the LED to make sure we get into IRQ handler
     static int dir = 0;
     GPIO_WriteBit(GPIOC, GPIO_Pin_9, dir ? Bit_SET : Bit_RESET);
     dir = 1 - dir;
