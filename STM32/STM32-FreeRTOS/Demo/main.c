@@ -13,7 +13,7 @@
 #include "my_i2c.h"
 #include "my_ssd1306.h"
     
-#define LEN 24 
+#define LEN 96 
 
 uint8_t ch[LEN];                                // Global buffer to store char strings received from USART
 uint8_t count = 0;
@@ -31,36 +31,88 @@ void clear_buffer(uint8_t *buffer, uint16_t buffer_length){
     buffer[i] = '\0';
 }
 
+uint8_t string_compare(char *input, char *compare){
+   while (*input == *compare) {
+      if (*input == '\0' || *compare == '\0')
+         break;
+ 
+      input++;
+      compare++;
+   }
+ 
+   if (*input == '\0' && *compare == '\0')
+      return 0;
+   else
+      return -1;
+}
+
 /** @brief: Thread 1
  *          Toggles GPIOC Pin 9 every 300ms
  */
 static void Thread1(void *arg)
 {
+    #define LINE_LEN    24
+    uint8_t char_buffer_truncated[LINE_LEN];
+    char gpxxx_string[6];
+    char time_string[7];
+    uint8_t i=0;
     int dir = 0;
     static uint8_t count = 0; 
     
-    char buffer[2] = "A";
     while(1)
     {
         vTaskDelay(300/portTICK_RATE_MS);
         GPIO_WriteBit(GPIOC, GPIO_Pin_9, dir ? Bit_SET : Bit_RESET);
         dir = 1-dir;
         if(xSemaphoreTake(ssd1306_i2c_write_mutex, 2000) == pdTRUE){
-            //char buffer[2];
-            //buffer[1] = '\0';
-            //&buffer+1 = '\0';
-            ssd1306_draw_string_to_buffer(0, 2, "Thread 1:", global_display_buffer);
-            ssd1306_draw_string_to_buffer(50, 2, buffer, global_display_buffer);
             if(state = MSG_RECEIVED){
-                ssd1306_draw_string_to_buffer(0, 4, ch, global_display_buffer);
-                clear_buffer(ch, LEN);
-                state = START_WAIT;
+                
+                // Read the first portion of the received message
+                for(i=0; i<LINE_LEN; i++){
+                    char_buffer_truncated[i] = ch[i];
+                }
+                char_buffer_truncated[i] = '\0'; 
+
+                // Store the NMEA sentence type received
+                for(i=0; i<5; i++){
+                    gpxxx_string[i] = char_buffer_truncated[i];
+                }
+                gpxxx_string[i] = '\0';
+                
+                if(!string_compare(gpxxx_string, "GPGGA") || !string_compare(gpxxx_string, "GPRMC")){
+                    // Store the UTC time string
+                    // Exception is GPGSV and GPVTG 
+                    // Print in the top right for now
+                    for(i=0; i<6; i++){
+                        time_string[i] = char_buffer_truncated[6+i];    // Time starts with the 7th char
+                    }
+                    time_string[i] = '\0';
+                    ssd1306_draw_string_to_buffer(95, 0, time_string, global_display_buffer);
+
+                    ssd1306_draw_string_to_buffer(0, 4, char_buffer_truncated, global_display_buffer);
+                    for(i=0; i<LINE_LEN; i++){
+                        char_buffer_truncated[i] = ch[LINE_LEN + i];
+                    }
+                    char_buffer_truncated[i] = '\0'; 
+                    ssd1306_draw_string_to_buffer(0, 5, char_buffer_truncated, global_display_buffer);
+                    for(i=0; i<LINE_LEN; i++){
+                        char_buffer_truncated[i] = ch[2*LINE_LEN + i];
+                    }
+                    char_buffer_truncated[i] = '\0'; 
+                    ssd1306_draw_string_to_buffer(0, 6, char_buffer_truncated, global_display_buffer);
+                    for(i=0; i<LINE_LEN; i++){
+                        char_buffer_truncated[i] = ch[3*LINE_LEN + i];
+                    }
+                    char_buffer_truncated[i] = '\0'; 
+                    ssd1306_draw_string_to_buffer(0, 7, char_buffer_truncated, global_display_buffer);
+                }
+                    clear_buffer(ch, LEN);
+                    state = START_WAIT;
+                
             }
-            buffer[0] += 1;
+            ssd1306_draw_string_to_buffer(0, 2, "Thread 1:", global_display_buffer);
+            ssd1306_draw_string_to_buffer(50, 2, gpxxx_string, global_display_buffer);
             ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
-            if(g_gps_line_ready){
-                g_gps_line_ready = 0;
-            }
             xSemaphoreGive(ssd1306_i2c_write_mutex);
         }
     }
