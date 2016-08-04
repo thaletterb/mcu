@@ -21,8 +21,11 @@ uint8_t count = 0;
 volatile uint8_t g_gps_line_ready = 0;
 enum {START_WAIT, RECEIVING, MSG_RECEIVED} state = START_WAIT; 
 
+xQueueHandle RxQueue, TxQueue;                  // Queues used for USART
 xSemaphoreHandle ssd1306_i2c_write_mutex;       // A mutex to control write access to the TWI bus
 
+/** @brief: function to clear all contents (set to 0) of the input buffer
+*/
 void clear_buffer(uint8_t *buffer, uint16_t buffer_length){
     uint16_t i=0;
     for(i=0; i<(buffer_length-1); i++){
@@ -31,6 +34,9 @@ void clear_buffer(uint8_t *buffer, uint16_t buffer_length){
     buffer[i] = '\0';
 }
 
+/** @brief: function to compare to two strings
+*           returns 0 if two strings are equal, else -1
+*/
 uint8_t string_compare(char *input, char *compare){
    while (*input == *compare) {
       if (*input == '\0' || *compare == '\0')
@@ -45,6 +51,8 @@ uint8_t string_compare(char *input, char *compare){
    else
       return -1;
 }
+
+/** Start of FreeRTOS Threads/Tasks **/
 
 /** @brief: Thread 1
  *          Toggles GPIOC Pin 9 every 300ms
@@ -141,60 +149,32 @@ static void Thread2(void *arg)
     }
 }
 
+//// TODO! Implementation of Queues
+//static void vUSARTTask(void *pvParameters){
+//    portTickType xLastWakeTime;
+//    const portTickType xFrequency = 50;
+//    xLastWakeTime=xTaskGetTickCount();
+//    char ch;
+//    char buffer[2] = "A";
+//    //RxQueue = xQueueCreate( 128, sizeof( portCHAR ) );
+//    if(RxQueue == NULL){
+//        // Die
+//        GPIO_WriteBit(GPIOC, GPIO_Pin_9, Bit_SET);
+//        GPIO_WriteBit(GPIOC, GPIO_Pin_8, Bit_SET);
+// 
+//    }
+//    TxQueue = xQueueCreate( 64, sizeof( portCHAR ) );
+//    while(1)
+//    {
+//        if(Usart1GetChar(&ch)){
+//            buffer[0] = ch;
+//            ssd1306_draw_string_to_buffer(0, 6, buffer, global_display_buffer); 
+//        }
+//        vTaskDelayUntil(&xLastWakeTime,xFrequency);
+//    }      
+//}
 
-/** @brief: Thread 3
- *          
- */
-static void Thread3(void *arg)
-{
-    int dir = 0;
-
-    char buffer[2] = "Z";
-    while(1)
-    {
-        vTaskDelay(200/portTICK_RATE_MS);
-        if(xSemaphoreTake(ssd1306_i2c_write_mutex, 1500) == pdTRUE){
-            ssd1306_draw_string_to_buffer(0, 6, "TSL2561:", global_display_buffer);
-            ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
-            xSemaphoreGive(ssd1306_i2c_write_mutex);
-        }
-    }
-}
-
-//xQueueHandle RxQueue, TxQueue;   // Queue for USART RX
-xQueueHandle RxQueue, TxQueue;   // Queue for USART RX
-
-uint32_t Usart1GetChar(char *ch){
-  if(xQueueReceive( RxQueue, ch, 0 ) == pdPASS)
-    {
-      return pdTRUE;
-    }
-  return pdFALSE;
-}
-
-static void vUSARTTask(void *pvParameters){
-    portTickType xLastWakeTime;
-    const portTickType xFrequency = 50;
-    xLastWakeTime=xTaskGetTickCount();
-    char ch;
-    char buffer[2] = "A";
-    //RxQueue = xQueueCreate( 128, sizeof( portCHAR ) );
-    if(RxQueue == NULL){
-        // Die
-        GPIO_WriteBit(GPIOC, GPIO_Pin_9, Bit_SET);
-        GPIO_WriteBit(GPIOC, GPIO_Pin_8, Bit_SET);
- 
-    }
-    TxQueue = xQueueCreate( 64, sizeof( portCHAR ) );
-    while(1)
-    {
-        if(Usart1GetChar(&ch)){
-            buffer[0] = ch;
-            ssd1306_draw_string_to_buffer(0, 6, buffer, global_display_buffer); 
-        }
-        vTaskDelayUntil(&xLastWakeTime,xFrequency);
-    }      
-}
+/** End of FreeRTOS Threads/Tasks **/
 
 void usart1_init(void){
 // Init the USART1 peripheral
@@ -234,36 +214,6 @@ void usart1_init(void){
 
 }
 
-void USART_PutChar(uint8_t ch)
-// Puts char ch into the USART data register for Tx
-{
-    while(!(USART1->SR & USART_SR_TXE));        // & TX Register Empty
-    //USART1->DR = ch;                            // Put char 'ch' into data register
-    USART_SendData(USART1, ch);
-}
-
-int USART_GetChar(void){
-// Gets char 'ch' from the USART data register for rx
-
-    while (USART_GetFlagStatus(USART1, USART_FLAG_RXNE) == SET);
-    //return  USART1->DR & 0xff;
-    USART_ClearFlag(USART1, USART_FLAG_RXNE);
-    return  0xFF & USART_ReceiveData(USART1);
-
-}
-
-void USART_PutString(uint8_t * str)
-{
-    while(*str != 0)
-    {
-        USART_PutChar(*str);
-        str++;
-    }
-}
-
-
-
-
 /** @brief: Inits the required HW
 *           GPIOC Pins 8 and 9 (LEDS)
 */
@@ -292,20 +242,6 @@ static void init_hw(void)
     ssd1306_i2c_init(I2C1, SSD1306_I2C_SLAVE_ADDRESS8);
     ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
     ssd1306_i2c_write_mutex = xSemaphoreCreateMutex();
-
-    // Init TSL2561
-    #define TSL2561_I2C_SLAVE_ADDRESS7  0x39    // 0x39 is 7bit if ADDR is left floating
-    uint8_t tsl2561_8bit_address = (TSL2561_I2C_SLAVE_ADDRESS7 << 1);
-    //uint8_t tsl2561_8bit_address = 0x73;
-    uint8_t tsl2561_cmd_reg_val = 0;
-
-    tsl2561_cmd_reg_val |= (1<<7) | (0x0);            // Set the CMD byte to 1 and addr to 0x00 in the Command Register
-    uint8_t ret_val = i2c_send_command_new(I2C1, tsl2561_8bit_address, 0x03, tsl2561_cmd_reg_val);
-    if(ret_val)
-    {
-        while(1){}  // If failed - Loop here forever
-    }
-    //i2c_read_reg_new(I2C1, tsl2561_8bit_address, 0x00, tsl2561_cmd_reg_val);
 
     // USART1
     usart1_init();
@@ -336,22 +272,15 @@ int main(void)
     //xTaskCreate(Function To Execute, Name, Stack Size, Parameter, Scheduling Priority, Storage for handle)
     xTaskCreate(Thread1, "Thread 1", 128, NULL, tskIDLE_PRIORITY+1, NULL);
     xTaskCreate(Thread2, "Thread 2", 128, NULL, tskIDLE_PRIORITY+2, NULL);
-    //xTaskCreate(Thread3, "Thread 3", 128, NULL, tskIDLE_PRIORITY+2, NULL);
-    xTaskCreate(vUSARTTask, "vUSART Task", 128, NULL, tskIDLE_PRIORITY, NULL);
+    //xTaskCreate(vUSARTTask, "vUSART Task", 128, NULL, tskIDLE_PRIORITY, NULL);    // TODO!!
 
-    //// Start scheduler. Note - Scheduler never ends
+    // Start scheduler. Note - Scheduler never ends
     vTaskStartScheduler();
 }
 
-#ifdef USE_FULL_ASSERT
-void assert_failed(uint8_t* file, uint32_t line){
-    /* Infinite loop */
-    /* Use GDB to find out why we're here */
-    while(1);
-}
-#endif
 
-/** Functions with no current implementations **/
+/** FreeRTOS Functions with no current implementations **/
+
 /** @brief: The user defined idle hook (calback function) for the idle task
  *          TODO: Implement putting the processor to low power state
  *          #define configUSE_IDLE_HOOK             1
@@ -377,8 +306,18 @@ void vApplicationMallocFailedHook(void)
 
 }
 
+/** End FreeRTOS Functions with no current implementations **/
 
+#ifdef USE_FULL_ASSERT
+void assert_failed(uint8_t* file, uint32_t line){
+    /* Infinite loop */
+    /* Use GDB to find out why we're here */
+    while(1);
+}
+#endif
 
+/** @brief: USART1 IRQ Handler
+*/ 
 void USART1_IRQHandler(void)
 {
     //static uint8_t count = 0;
@@ -391,49 +330,39 @@ void USART1_IRQHandler(void)
     {
         
         temp=(uint8_t)USART_ReceiveData(USART1);
-        //// Prints the raw data
-        //ch[count] = temp;
-        //count++;
-        //if(count > (LEN - 2)){
-        //    g_gps_line_ready = 1;   // Flag for Thread1 to parse the data
-        //    ssd1306_draw_string_to_buffer(2, 4, ch, global_display_buffer);
-        //    clear_buffer(ch, LEN);
-        //    count = 0;
-        //}
-
-       switch(state)
-       {
-          case START_WAIT:               // Waiting for start of message
-             if(temp =='$')                         // Start character received...
-             {
-                count = 0;                     // reset the data buffer index...
-                state = RECEIVING;        // and start receiving data
-             }
-             break;
+        switch(state)
+        {
+           case START_WAIT:               // Waiting for start of message
+              if(temp =='$')                         // Start character received...
+              {
+                 count = 0;                     // reset the data buffer index...
+                 state = RECEIVING;        // and start receiving data
+              }
+              break;
       
-          case RECEIVING:                   // Message Start received
-             if(temp=='*')                          // If end of message...
-            {
-                ch[count] = '\0';
-                state = MSG_RECEIVED;  // indicate we're done - don't process any more character until 
-             }                                     // done processing and next start is received
-                else
-                {
-                   ch[count] = temp;      // Save the character in our buffer
-                   if (++count >= LEN)   // If we overran our data buffer...
-                     //state = START_WAIT;   // wait for the next message
-                     state = MSG_RECEIVED;   // wait for the next message
-               }
-               break;
-       } 
-  } 
+           case RECEIVING:                   // Message Start received
+              if(temp=='*')                          // If end of message...
+             {
+                 ch[count] = '\0';
+                 state = MSG_RECEIVED;  // indicate we're done - don't process any more character until 
+              }                                     // done processing and next start is received
+                 else
+                 {
+                    ch[count] = temp;      // Save the character in our buffer
+                    if (++count >= LEN)   // If we overran our data buffer...
+                      //state = START_WAIT;   // wait for the next message
+                      state = MSG_RECEIVED;   // wait for the next message
+                }
+                break;
+        } 
+    } 
   
         
-        //if(xQueueIsQueueFullFromISR(RxQueue) == pdFALSE)          TODO!!! 
-        //{
-        //    ssd1306_draw_string_to_buffer(100, 0, ch, global_display_buffer);
-        //    //xQueueSendToBackFromISR( RxQueue, &ch, &xHigherPriorityTaskWoken );
-        //}
+   //if(xQueueIsQueueFullFromISR(RxQueue) == pdFALSE)          TODO!!! 
+   //{
+   //    ssd1306_draw_string_to_buffer(100, 0, ch, global_display_buffer);
+   //    //xQueueSendToBackFromISR( RxQueue, &ch, &xHigherPriorityTaskWoken );
+   //}
 
     // Blink the LED to make sure we get into IRQ handler
     static int dir = 0;
@@ -442,76 +371,3 @@ void USART1_IRQHandler(void)
     portEND_SWITCHING_ISR( xHigherPriorityTaskWoken );
 
 }
-
-//void USART1_IRQHandler(void)
-//{
-//    #define LEN 256 
-//    long xHigherPriorityTaskWoken = pdFALSE;
-//    uint8_t temp = 0;
-//    static uint8_t ch[LEN];
-//    static uint16_t count = 0;
-//    static uint8_t newline = 0;
-//    static uint8_t endline = 0;
-//    //ch[0] = 'H';
-//    
-//    //if Receive interrupt
-//    if (USART_GetITStatus(USART1, USART_IT_RXNE) != RESET)
-//    {
-//        
-//        temp=(uint8_t)USART_ReceiveData(USART1);
-//        if(!g_gps_line_ready){
-//            // 'LF' denotes end of new line. append an end of string char and write to buffer
-//            if(newline){
-//                if(temp == 0x0A && count > 10){
-//                    ch[count]=temp;
-//                    ch[count++] = '\0';
-//                    ssd1306_draw_string_to_buffer(0, 4, ch, global_display_buffer);
-//                    g_gps_line_ready = 1;
-//                    ssd1306_i2c_draw_buffer(I2C1, SSD1306_I2C_SLAVE_ADDRESS8, global_display_buffer);
-//                    g_gps_line_ready = 0;
-//                    count = 0;
-//                    newline = 0;
-//                }
-//                else{
-//                    ch[count] = temp;
-//                    count++; 
-//                    if(ch[1] != 'P'){
-//                        count = 0;
-//                        newline = 0;
-//                        clear_buffer(ch, LEN);
-//                    }
-//                }
-//            }
-//            // '$' denotes start of a new line
-//            if(temp == 'G' && newline == 0){
-//                clear_buffer(ch, LEN);
-//                count = 0;
-//                newline = 1;
-//                ch[count]=temp;
-//                count++;
-//            }
-//        }
-//
-//        // Prints the raw data
-//        //ch[count] = temp;
-//        //count++;
-//        //if(count > 254){
-//        //    ssd1306_draw_string_to_buffer(0, 4, ch, global_display_buffer);
-//        //    count = 0;
-//        //}
-//        
-//        //if(xQueueIsQueueFullFromISR(RxQueue) == pdFALSE)          TODO!!! 
-//        //{
-//        //    ssd1306_draw_string_to_buffer(100, 0, ch, global_display_buffer);
-//        //    //xQueueSendToBackFromISR( RxQueue, &ch, &xHigherPriorityTaskWoken );
-//        //}
-//    }
-//
-//    // Blink the LED to make sure we get into IRQ handler
-//    static int dir = 0;
-//    GPIO_WriteBit(GPIOC, GPIO_Pin_9, dir ? Bit_SET : Bit_RESET);
-//    dir = 1 - dir;
-//    portEND_SWITCHING_ISR( xHigherPriorityTaskWoken );
-//
-//}
-
