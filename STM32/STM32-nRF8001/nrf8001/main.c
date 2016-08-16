@@ -1,3 +1,5 @@
+#include "spi.h"
+
 int i = 0;
 int off = 5;
 
