@@ -1,6 +1,8 @@
 #include <stm32f10x_spi.h>
 #include "spi.h"
 
+#include "lib_aci.h"
+
 // Timer code
 static __IO uint32_t TimingDelay;
 
@@ -26,4 +28,12 @@ int main(void){
 
     }
 }
+
+#ifdef USE_FULL_ASSERT
+void assert_failed(uint8_t* file, uint32_t line){
+    /* Infinite loop */
+    /* Use GDB to find out why we're here */
+    while(1);
+}
+#endif
 
