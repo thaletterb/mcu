@@ -19,7 +19,7 @@
   @brief Implementation of the ACI library.
  */
 
-#include "hardware.h"
+//#include "hardware.h"
 #include "aci.h"
 #include "aci_cmds.h"
 #include "aci_evts.h"
