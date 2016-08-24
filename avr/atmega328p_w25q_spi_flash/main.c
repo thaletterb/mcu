@@ -12,19 +12,20 @@
 int main(void)
 {
     spi_init();
+
     // CS init
-    DDRB |= (1<<W25Q_SS_PIN);   // SS pin is connected to PB1. Make it an output
-    PORTB |= (1<<W25Q_SS_PIN);  // Drive it high
+    w25q_ss_pin_init();
+    w25q_ss_pin_drive(1);
     while(1)
     {
-        PORTB &= ~(1<<W25Q_SS_PIN);
+        w25q_ss_pin_drive(0);
         spi_transmit(0x90);
         spi_transmit(0x00);
         spi_transmit(0x00);
         spi_transmit(0x00);
         spi_transmit(0x00);
         spi_transmit(0x00);
-        PORTB |= (1<<W25Q_SS_PIN);
+        w25q_ss_pin_drive(1);
         _delay_ms(1);
 
     }
