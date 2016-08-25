@@ -10,6 +10,9 @@
 #define W25Q_CONTROL_PORT   PORTB
 #define W25Q_CONTROL_PIN    PINB
 
+#define LOGIC_LOW   0
+#define LOGIC_HIGH  1
+
 /** Begin Function Prototypes **/
 
 /** @brief: initialize the ss pin

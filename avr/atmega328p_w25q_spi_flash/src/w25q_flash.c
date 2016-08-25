@@ -24,9 +24,30 @@ void w25q_ss_pin_drive(uint8_t high)
 
 /** @brief: return the manufacturer ID
  */
-char w25q_read_manufacturer_id(void);
+char w25q_read_manufacturer_id(void)
+{
+    w25q_ss_pin_drive(LOGIC_LOW);
+    spi_transmit(0x90);
+    spi_transmit(0x00);
+    spi_transmit(0x00);
+    spi_transmit(0x00);
+    uint8_t man_id = spi_transmit(0x00);
+    spi_transmit(0x00);
+    w25q_ss_pin_drive(LOGIC_HIGH);
+    return man_id;
+}
 
 /** @brief: return the device ID
  */
-char w25q_read_device_id(void);
-
+char w25q_read_device_id(void)
+{
+    w25q_ss_pin_drive(LOGIC_LOW);
+    spi_transmit(0x90);
+    spi_transmit(0x00);
+    spi_transmit(0x00);
+    spi_transmit(0x00);
+    spi_transmit(0x00);
+    uint8_t dev_id = spi_transmit(0x00);
+    w25q_ss_pin_drive(LOGIC_HIGH);
+    return dev_id;
+}
