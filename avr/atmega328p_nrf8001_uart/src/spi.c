@@ -8,7 +8,8 @@
 void spi_init(void)
 {
     DDRB = ((1<<SPI_MOSI_PIN)|(1<<SPI_SCLK_PIN)|(1<<SPI_SS_PIN)); //spi pins on port b MOSI SCK,SS outputs
-    SPCR = ((1<<SPE)|(1<<MSTR)|(1<<SPR0));  // SPI enable, Master, f/16, 
+    //SPCR = ((1<<SPE)|(1<<MSTR)|(1<<SPR0));  // SPI enable, Master, f/16, 
+    SPCR = ((1<<SPE)|(1<<MSTR));  // SPI enable, Master, f/16, 
                                             // CPOL0 SCK is low when idle, CPHA0 sample leading edge
 }
 

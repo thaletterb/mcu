@@ -188,8 +188,13 @@ bool hal_aci_tl_event_get(hal_aci_data_t *p_aci_data)
 static void configureNRF8001Interface(void)
 {
     spi_init();             // Init the SPI interface
+
     NRF8001_RDYN_DDR &= ~(1<<NRF8001_RDYN_PIN);     // PD2 = input 
+    PORTD |= (1<<NRF8001_RDYN_PIN);
+    NRF8001_RDYN_PIN_PULLUP();
+    
     NRF8001_REQN_CONFIG_OUT;
+    SET_REQN_HIGH();
 
     EIMSK |= (1<<INT0);     // Enable INT0 Interrupt
     EICRA |= (1<<ISC11);    // On falling edge of PD2/INT0
@@ -309,100 +314,105 @@ void hal_aci_tl_poll_rdy_line(void)
 }
 #endif
 
+
 hal_aci_data_t * hal_aci_tl_poll_get(void)
 {
-  uint8_t byte_cnt;
-  uint8_t byte_sent_cnt;
-  uint8_t max_bytes;
-  hal_aci_data_t data_to_send;
+    uint8_t byte_cnt;
+    uint8_t byte_sent_cnt;
+    uint8_t max_bytes;
+    hal_aci_data_t data_to_send;
 
-  memset(data_to_send.buffer,0,sizeof(data_to_send.buffer));
-  memset(received_data.buffer,0,sizeof(received_data.buffer));
-  //bool is_transmit_finished = false; // Unreferenced variable
+    memset(data_to_send.buffer,0,sizeof(data_to_send.buffer));
+    memset(received_data.buffer,0,sizeof(received_data.buffer));
+    //bool is_transmit_finished = false; // Unreferenced variable
 
-  // REQN already set
-  //hal_pltf_enable_spi();
-  //pinMode(5, OUTPUT);
-  //digitalWrite(HAL_IO_RADIO_REQN, 0);
+    // REQN already set
+    //hal_pltf_enable_spi();
+    //pinMode(5, OUTPUT);
+    //digitalWrite(HAL_IO_RADIO_REQN, 0);
   
-	// Set request pin low to indicate to nRF8001 we want to send data
-	SET_REQN_LOW();
+    // Set request pin low to indicate to nRF8001 we want to send data
+    SET_REQN_LOW();
 
-	// Wait for RDYN to go low, if it's not already low - TODO!
-	//if(nRF8001_RDYN_PINREG & nRF8001_RDYN_PIN)
-	if(NRF8001_RDYN_PIN_INPUT_REG & NRF8001_RDYN_PIN)
-	{
-		do
-		{
-			// Wait for nRF8001 to indicate it is ready by waiting for RDYN
-			//_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-			//_nop();
+    // Wait for RDYN to go low, if it's not already low - TODO!
+    //if(nRF8001_RDYN_PINREG & nRF8001_RDYN_PIN)
+    if(NRF8001_RDYN_PIN_INPUT_REG & NRF8001_RDYN_PIN)
+    {
+    	do
+    	{
+    		// Wait for nRF8001 to indicate it is ready by waiting for RDYN
+    		//_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+    		//_nop();
             asm volatile ("nop");
-		}while(rdynFlag == 0);
-	}
+    	}while(rdynFlag == 0);
+    }
 
-  // Receive from queue
-  if (m_aci_q_dequeue(&aci_tx_q, &data_to_send) == false)
-  {
-    /* queue was empty, nothing to send */
-    data_to_send.status_byte = 0;
-    data_to_send.buffer[0] = 0;
-  }
+    // Receive from queue
+    if (m_aci_q_dequeue(&aci_tx_q, &data_to_send) == false)
+    {
+        /* queue was empty, nothing to send */
+        data_to_send.status_byte = 0;
+        data_to_send.buffer[0] = 0;
+    }
+
   
-	//Change this if your mcu has DMA for the master SPI
-	//When using DMA always clock out the max length of the message being sent and
-	// event being received or HAL_ACI_MAX_LENGTH
+    //Change this if your mcu has DMA for the master SPI
+    //When using DMA always clock out the max length of the message being sent and
+    // event being received or HAL_ACI_MAX_LENGTH
   
-  // Send length, receive header
-  byte_sent_cnt = 0;
-  received_data.status_byte = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
-  // Send first byte, receive length from slave
-  received_data.buffer[0] = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
-  if (0 == data_to_send.buffer[0])
-  {
-    max_bytes = received_data.buffer[0];
-  }
-  else
-  {
-    // Set the maximum to the biggest size. One command byte is already sent
-    max_bytes = (received_data.buffer[0] > (data_to_send.buffer[0] - 1)) 
-      ? received_data.buffer[0] : (data_to_send.buffer[0] - 1);
-  }
+    // Send length, receive header
+    byte_sent_cnt = 0;
+    received_data.status_byte = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
 
-  if (max_bytes > HAL_ACI_MAX_LENGTH)
-  {
-    max_bytes = HAL_ACI_MAX_LENGTH;
-  }
+    // Send first byte, receive length from slave
+    received_data.buffer[0] = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
 
-  // Transmit/receive the rest of the packet 
-  for (byte_cnt = 0; byte_cnt < max_bytes; byte_cnt++)
-  {
-    received_data.buffer[byte_cnt+1] =  spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
-  }
+    if (0 == data_to_send.buffer[0])
+    {
+      max_bytes = received_data.buffer[0];
+    }
+    else
+    {
+      // Set the maximum to the biggest size. One command byte is already sent
+      max_bytes = (received_data.buffer[0] > (data_to_send.buffer[0] - 1)) 
+        ? received_data.buffer[0] : (data_to_send.buffer[0] - 1);
+    }
 
-  // Deassert REQN to indicate end of transmission
-  SET_REQN_HIGH();
-  //digitalWrite(HAL_IO_RADIO_REQN, 1);
-  //hal_pltf_disable_spi();
-  //RDYN should follow the REQN line in approx 100ns
 
-  _delay_loop_1(10); // Delay to allow REQN to stay high for the required amount of time - TODO!
+    if (max_bytes > HAL_ACI_MAX_LENGTH)
+    {
+        max_bytes = HAL_ACI_MAX_LENGTH;
+    }
+
+    // Transmit/receive the rest of the packet 
+    for (byte_cnt = 0; byte_cnt < max_bytes; byte_cnt++)
+    {
+        received_data.buffer[byte_cnt+1] =  spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
+    }
+    // Deassert REQN to indicate end of transmission
+    SET_REQN_HIGH();
+    //digitalWrite(HAL_IO_RADIO_REQN, 1);
+    //hal_pltf_disable_spi();
+    //RDYN should follow the REQN line in approx 100ns
+
+    //_delay_loop_1(10); // Delay to allow REQN to stay high for the required amount of time - TODO!
+    _delay_ms(5); // Delay to allow REQN to stay high for the required amount of time - TODO!
 
   
   //If there are more ACI commands in the queue, lower the REQN line immediately
   if (false == m_aci_q_is_empty(&aci_tx_q))
   {
       //digitalWrite(HAL_IO_RADIO_REQN, 0);
-	  // Set request pin low to indicate to nRF8001 we want to send data
-		SET_REQN_LOW();
+      // Set request pin low to indicate to nRF8001 we want to send data
+    	SET_REQN_LOW();
 
-		do
-		{
-			// Wait for nRF8001 to indicate it is ready by waiting for RDYN - TODO!
-			//_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-			//_nop();
+    	do
+    	{
+    		// Wait for nRF8001 to indicate it is ready by waiting for RDYN - TODO!
+    		//_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+    		//_nop();
             asm volatile ("nop");
-		}while(rdynFlag == 0);
+    	}while(rdynFlag == 0);
   
   }
   
@@ -421,7 +431,7 @@ hal_aci_data_t * hal_aci_tl_poll_get(void)
   			_nop();
   		}while(rdynFlag == 0);
   	}
-	*/
+    */
 
   
   /* valid Rx available or transmit finished*/
@@ -433,7 +443,11 @@ hal_aci_data_t * hal_aci_tl_poll_get(void)
 static uint8_t spi_readwrite(const uint8_t aci_byte)
 {
 	
+    #define DUMMY_BYTE 0x00
     SPDR = aci_byte;
+    while (!(SPSR & _BV(SPIF)))
+      ;
+    SPDR = DUMMY_BYTE;
     while (!(SPSR & _BV(SPIF)))
       ;
     return SPDR;
@@ -470,6 +484,7 @@ ISR(INT0_vect)
 	// Set flag so it can be processed in the main loop
 	rdynFlag = 1;
 
+    DDRB |= (1<<LED1_PHYSICAL_PIN);
 	//// Exit from sleep mode upon ISR exit so data can be sent
 	//_BIC_SR_IRQ( LPM0_bits );
 	//__no_operation();
