@@ -11,6 +11,9 @@
 #define NRF8001_RDYN_PIN            2   // PD2 - needs to be on INT0/INT1
 #define NRF8001_RDYN_PIN_PULLUP()   NRF8001_RDYN_PORT |= (1<<NRF8001_RDYN_PIN)
 
+#define DISABLE_RDYN_INT()          EIMSK &= ~(1<<INT0);
+#define ENABLE_RDYN_INT()           EIMSK |= (1<<INT0);
+
 #define NRF8001_REQN_PORT           PORTB
 #define NRF8001_REQN_DDR            DDRB
 #define NRF8001_REQN_PIN_INPUT_REG  PINB

@@ -159,8 +159,8 @@ void m_rdy_line_handle(void)
       /* Disable RDY line interrupt.
          Will latch any pending RDY lines, so when enabled it again this
          routine should be taken again */
-      EIMSK &= ~(0x2);
-      //DISABLE_RDYN_INT();
+      //EIMSK &= ~(0x1);
+      DISABLE_RDYN_INT();
     }    
   }
 }
@@ -174,8 +174,8 @@ bool hal_aci_tl_event_get(hal_aci_data_t *p_aci_data)
     if (was_full)
     {
       /* Enable RDY line interrupt again */
-    	//ENABLE_RDYN_INT();
-    	EIMSK |= (0x2);
+    	ENABLE_RDYN_INT();
+    	//EIMSK |= (0x1);
     }
     return true;
   }
@@ -196,8 +196,12 @@ static void configureNRF8001Interface(void)
     NRF8001_REQN_CONFIG_OUT;
     SET_REQN_HIGH();
 
+    NRF8001_RSTN_CONFIG_OUT;
+    SET_RSTN_HIGH();
+
+    DDRB |= (1<<LED1_PHYSICAL_PIN); // LED As output
     EIMSK |= (1<<INT0);     // Enable INT0 Interrupt
-    EICRA |= (1<<ISC11);    // On falling edge of PD2/INT0
+    EICRA |= (1<<ISC01);    // On falling edge of PD2/INT0
 }
 
 
@@ -362,10 +366,14 @@ hal_aci_data_t * hal_aci_tl_poll_get(void)
   
     // Send length, receive header
     byte_sent_cnt = 0;
-    received_data.status_byte = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
+    //received_data.status_byte = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
+
+    //// Send first byte, receive length from slave
+    //received_data.buffer[0] = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
+    received_data.status_byte = spi_readwrite(0x01);
 
     // Send first byte, receive length from slave
-    received_data.buffer[0] = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
+    received_data.buffer[0] = spi_readwrite(0x09);
 
     if (0 == data_to_send.buffer[0])
     {
@@ -484,7 +492,7 @@ ISR(INT0_vect)
 	// Set flag so it can be processed in the main loop
 	rdynFlag = 1;
 
-    DDRB |= (1<<LED1_PHYSICAL_PIN);
+    PORTB ^= (1<<LED1_PHYSICAL_PIN);
 	//// Exit from sleep mode upon ISR exit so data can be sent
 	//_BIC_SR_IRQ( LPM0_bits );
 	//__no_operation();
