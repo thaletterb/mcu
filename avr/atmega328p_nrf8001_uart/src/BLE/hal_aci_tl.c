@@ -366,14 +366,14 @@ hal_aci_data_t * hal_aci_tl_poll_get(void)
   
     // Send length, receive header
     byte_sent_cnt = 0;
-    //received_data.status_byte = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
-
-    //// Send first byte, receive length from slave
-    //received_data.buffer[0] = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
-    received_data.status_byte = spi_readwrite(0x01);
+    received_data.status_byte = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
 
     // Send first byte, receive length from slave
-    received_data.buffer[0] = spi_readwrite(0x09);
+    received_data.buffer[0] = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
+    //received_data.status_byte = spi_readwrite(0x01);
+
+    //// Send first byte, receive length from slave
+    //received_data.buffer[0] = spi_readwrite(0x09);
 
     if (0 == data_to_send.buffer[0])
     {
@@ -492,7 +492,7 @@ ISR(INT0_vect)
 	// Set flag so it can be processed in the main loop
 	rdynFlag = 1;
 
-    PORTB ^= (1<<LED1_PHYSICAL_PIN);
+    //PORTB ^= (1<<LED1_PHYSICAL_PIN);
 	//// Exit from sleep mode upon ISR exit so data can be sent
 	//_BIC_SR_IRQ( LPM0_bits );
 	//__no_operation();

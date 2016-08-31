@@ -7,10 +7,12 @@
 
 void spi_init(void)
 {
-    DDRB = ((1<<SPI_MOSI_PIN)|(1<<SPI_SCLK_PIN)|(1<<SPI_SS_PIN)); //spi pins on port b MOSI SCK,SS outputs
+    DDRB |= ((1<<SPI_MOSI_PIN)|(1<<SPI_SCLK_PIN)|(1<<SPI_SS_PIN));       //spi pins on port b MOSI SCK,SS outputs
+    PORTB &= ~((1<<SPI_MOSI_PIN)|(1<<SPI_SCLK_PIN)|(1<<SPI_SS_PIN));    // Set output LOW 
     //SPCR = ((1<<SPE)|(1<<MSTR)|(1<<SPR0));  // SPI enable, Master, f/16, 
-    SPCR = ((1<<SPE)|(1<<MSTR)|(1<<DORD));  // SPI enable, Master 
-                                  // CPOL0 SCK is low when idle, CPHA0 sample leading edge
+    SPCR |= ((1<<SPE)|(1<<MSTR)|(1<<DORD)|(1<<SPR0));  // SPI enable, Master 
+                                            // CPOL0 SCK is low when idle, CPHA0 sample leading edge
+    //SPSR |= (1<<SPI2X);
 }
 
 /** @brief: spi transmit function

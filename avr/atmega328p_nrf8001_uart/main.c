@@ -69,6 +69,7 @@ hal_aci_data_t test_aci_command;
 
 int main(void)
 {
+    SET_RSTN_HIGH();            // Set RST high
     // Init the device version aci command
     test_aci_command.buffer[OFFSET_ACI_CMD_T_LEN] = 1;
     test_aci_command.buffer[OFFSET_ACI_CMD_T_CMD_OPCODE] = ACI_CMD_GET_DEVICE_VERSION;
@@ -77,11 +78,77 @@ int main(void)
     //as soon as the reset is complete
     hal_aci_tl_init();
 
+    _delay_ms(100);
+    //cli();
+    sei();
+
     // Reset the device
     resetDevice();
     LED2_CONFIG_OUT;
 
-    sei();
+    while(1){
+        resetDevice();
+        // Read the device started event
+        if(NRF8001_RDYN_PIN_INPUT_REG & NRF8001_RDYN_PIN)   // RDYN goes low when nrf8001 is ready
+        {
+            do
+            {
+                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
+                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+                //_nop();
+                asm volatile ("nop");
+            }while(NRF8001_RDYN_PIN_INPUT_REG & NRF8001_RDYN_PIN);
+        }
+        SET_REQN_LOW();     // Once nrf8001 signals ready, request data
+        _delay_ms(2);
+        spi_transmit(0x00);
+        uint8_t packet_length = spi_transmit(0x00); // First byte of aci event is packet length
+        for(uint8_t i=0; i<packet_length; i++)
+        {
+            spi_transmit(0x00);
+        }
+        SET_REQN_HIGH();    // End transmission
+        _delay_ms(2);
+
+        // Read the device version
+        SET_REQN_LOW();
+        if(NRF8001_RDYN_PIN_INPUT_REG & NRF8001_RDYN_PIN)   // RDYN goes low when nrf8001 is ready
+        {
+            do
+            {
+                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
+                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+                //_nop();
+                asm volatile ("nop");
+            }while(NRF8001_RDYN_PIN_INPUT_REG & NRF8001_RDYN_PIN);
+        }
+        _delay_ms(2);
+        spi_transmit(0x01);
+        spi_transmit(0x09);
+        SET_REQN_HIGH();
+
+        if(NRF8001_RDYN_PIN_INPUT_REG & NRF8001_RDYN_PIN)   // RDYN goes low when nrf8001 is ready
+        {
+            do
+            {
+                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
+                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+                //_nop();
+                asm volatile ("nop");
+            }while(NRF8001_RDYN_PIN_INPUT_REG & NRF8001_RDYN_PIN);
+        }
+        _delay_ms(2);
+
+        SET_REQN_LOW();
+        _delay_ms(2);
+        spi_transmit(0x00);
+        packet_length = spi_transmit(0x00);
+        for(uint8_t i=0; i<packet_length; i++)
+        {
+            spi_transmit(0x00);
+        }
+        SET_REQN_HIGH();
+    }
 
     // Main application loop
     while(1)
@@ -158,8 +225,7 @@ int main(void)
             // Wakeup from sleep from the RDYN line
         }
 
-
-        _delay_ms(25);
+        _delay_ms(10);
     }
     return 1;
 }
@@ -171,11 +237,11 @@ void resetDevice(void)
     NRF8001_RSTN_CONFIG_OUT;    // Configure AVR PB0 as RST
     
     SET_RSTN_HIGH();            // Set RST high
-    _delay_ms(10);               
+    _delay_ms(50);               
     SET_RSTN_LOW();             // Set RST low
-    _delay_ms(10);               
+    _delay_ms(100);               
     SET_RSTN_HIGH();            // Set RST high
-    _delay_ms(5);               
+    _delay_ms(100);               
   
     SET_RSTN_HIGH();            // Set RST high
 }
