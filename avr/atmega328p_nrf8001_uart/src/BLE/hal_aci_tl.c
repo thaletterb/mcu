@@ -190,8 +190,8 @@ static void configureNRF8001Interface(void)
     spi_init();             // Init the SPI interface
 
     NRF8001_RDYN_DDR &= ~(1<<NRF8001_RDYN_PIN);     // PD2 = input 
-    PORTD |= (1<<NRF8001_RDYN_PIN);
-    NRF8001_RDYN_PIN_PULLUP();
+    //PORTD |= (1<<NRF8001_RDYN_PIN);               // RDYN is pulled up with 10K on breakout board
+    //NRF8001_RDYN_PIN_PULLUP();
     
     NRF8001_REQN_CONFIG_OUT;
     SET_REQN_HIGH();
