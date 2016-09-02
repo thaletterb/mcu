@@ -40,31 +40,6 @@ static hal_aci_data_t aci_cmd;
 /** Function Prototypes **/
 void resetDevice(void);
 
-/** Scratch **/
-///** Data type for ACI commands and events */
-//typedef struct hal_aci_data_t{
-//  uint8_t status_byte;
-//  uint8_t buffer[HAL_ACI_MAX_LENGTH+1];
-//} hal_aci_data_t;
-
-//bool lib_aci_device_version()
-//{
-//  acil_encode_cmd_get_device_version(&(msg_to_send.buffer[0]));
-//  return hal_aci_tl_send(&msg_to_send);
-//}
-
-//void acil_encode_cmd_get_device_version(uint8_t *buffer)
-//{
-//  *(buffer + OFFSET_ACI_CMD_T_LEN) = 1;
-//  *(buffer + OFFSET_ACI_CMD_T_CMD_OPCODE) = ACI_CMD_GET_DEVICE_VERSION;
-//}
-
-/** End Scratch **/
-
-#define OFFSET_ACI_CMD_T_LEN        0
-#define OFFSET_ACI_CMD_T_CMD_OPCODE 1
-#define ACI_CMD_GET_DEVICE_VERSION  0x09
-
 int main(void)
 {
     SET_RSTN_HIGH();            // Set RST high
@@ -81,82 +56,84 @@ int main(void)
     resetDevice();
     LED2_CONFIG_OUT;
 
-    while(1){
-        resetDevice();
-        // Read the device started event
-        if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-        {
-            do
-            {
-                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-                //_nop();
-                asm volatile ("nop");
-            }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-        }
-        SET_REQN_LOW();     // Once nrf8001 signals ready, request data
-        _delay_ms(2);
-        spi_transmit(0x00);
-        uint8_t packet_length = spi_transmit(0x00); // First byte of aci event is packet length
-        if(packet_length < 32)
-        {
-            for(uint8_t i=0; i<packet_length; i++)
-            {
-                spi_transmit(0x00);
-            }
-        }
-        SET_REQN_HIGH();    // End transmission
-        _delay_ms(2);
+    //while(1){
+    //    resetDevice();
+    //    // Read the device started event
+    //    if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
+    //    {
+    //        do
+    //        {
+    //            // Wait for nRF8001 to indicate it is ready by waiting for RDYN
+    //            //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+    //            //_nop();
+    //            asm volatile ("nop");
+    //        }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
+    //    }
+    //    SET_REQN_LOW();     // Once nrf8001 signals ready, request data
+    //    _delay_ms(2);
+    //    spi_transmit(0x00);
+    //    uint8_t packet_length = spi_transmit(0x00); // First byte of aci event is packet length
+    //    if(packet_length < 32)
+    //    {
+    //        for(uint8_t i=0; i<packet_length; i++)
+    //        {
+    //            spi_transmit(0x00);
+    //        }
+    //    }
+    //    SET_REQN_HIGH();    // End transmission
+    //    _delay_ms(2);
 
-        // Read the device version
-        SET_REQN_LOW();
-        if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-        {
-            do
-            {
-                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-                //_nop();
-                asm volatile ("nop");
-            }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-        }
-        _delay_ms(2);
-        spi_transmit(0x01);
-        spi_transmit(0x09);
-        SET_REQN_HIGH();
+    //    // Read the device version
+    //    SET_REQN_LOW();
+    //    if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
+    //    {
+    //        do
+    //        {
+    //            // Wait for nRF8001 to indicate it is ready by waiting for RDYN
+    //            //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+    //            //_nop();
+    //            asm volatile ("nop");
+    //        }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
+    //    }
+    //    _delay_ms(2);
+    //    spi_transmit(0x01);
+    //    spi_transmit(0x09);
+    //    SET_REQN_HIGH();
 
-        if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-        {
-            do
-            {
-                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-                //_nop();
-                asm volatile ("nop");
-            }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-        }
-        _delay_ms(2);
+    //    if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
+    //    {
+    //        do
+    //        {
+    //            // Wait for nRF8001 to indicate it is ready by waiting for RDYN
+    //            //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+    //            //_nop();
+    //            asm volatile ("nop");
+    //        }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
+    //    }
+    //    _delay_ms(2);
 
-        SET_REQN_LOW();
-        _delay_ms(2);
-        spi_transmit(0x00);
-        packet_length = spi_transmit(0x00);
-        if(packet_length < 32){
-            for(uint8_t i=0; i<packet_length; i++)
-            {
-                spi_transmit(0x00);
-            }
-        }
-        SET_REQN_HIGH();
-    }
+    //    SET_REQN_LOW();
+    //    _delay_ms(2);
+    //    spi_transmit(0x00);
+    //    packet_length = spi_transmit(0x00);
+    //    if(packet_length < 32){
+    //        for(uint8_t i=0; i<packet_length; i++)
+    //        {
+    //            spi_transmit(0x00);
+    //        }
+    //    }
+    //    SET_REQN_HIGH();
+    //    _delay_ms(1000);
+    //}
 
+    _delay_ms(100);
     // Main application loop - never gets to here yet!!!!
     while(1)
     {
         if(rdynFlag == 1)
         {
             rdynFlag = 0;
-            PORTB ^= (1<<LED1_PHYSICAL_PIN);
+            //PORTB ^= (1<<LED1_PHYSICAL_PIN);
             m_rdy_line_handle();
         }
 
@@ -173,6 +150,7 @@ int main(void)
                 */
                 case ACI_EVT_DEVICE_STARTED:
                 {
+                  PORTB |= (1<<LED1_PHYSICAL_PIN);
 
                   aci_state.data_credit_available = aci_evt->params.device_started.credit_available;
                   switch(aci_evt->params.device_started.device_mode)

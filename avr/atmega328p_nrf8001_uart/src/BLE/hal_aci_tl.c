@@ -336,20 +336,30 @@ hal_aci_data_t * hal_aci_tl_poll_get(void)
     //digitalWrite(HAL_IO_RADIO_REQN, 0);
   
     // Set request pin low to indicate to nRF8001 we want to send data
-    SET_REQN_LOW();
-
-    // Wait for RDYN to go low, if it's not already low - TODO!
-    //if(nRF8001_RDYN_PINREG & nRF8001_RDYN_PIN)
-    if(NRF8001_RDYN_PIN_INPUT_REG & NRF8001_RDYN_PIN)
+    SET_REQN_LOW();     // Once nrf8001 signals ready, request data
+    if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
     {
-    	do
-    	{
-    		// Wait for nRF8001 to indicate it is ready by waiting for RDYN
-    		//_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-    		//_nop();
+        do
+        {
+            // Wait for nRF8001 to indicate it is ready by waiting for RDYN
+            //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+            //_nop();
             asm volatile ("nop");
-    	}while(rdynFlag == 0);
+        }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
     }
+    _delay_ms(2);
+    //spi_transmit(0x00);
+    //uint8_t packet_length = spi_transmit(0x00); // First byte of aci event is packet length
+    //if(packet_length < 32)
+    //{
+    //    for(uint8_t i=0; i<packet_length; i++)
+    //    {
+    //        spi_transmit(0x00);
+    //    }
+    //}
+    //SET_REQN_HIGH();    // End transmission
+
+
 
     // Receive from queue
     if (m_aci_q_dequeue(&aci_tx_q, &data_to_send) == false)
@@ -366,14 +376,16 @@ hal_aci_data_t * hal_aci_tl_poll_get(void)
   
     // Send length, receive header
     byte_sent_cnt = 0;
-    received_data.status_byte = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
-
-    // Send first byte, receive length from slave
-    received_data.buffer[0] = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
-    //received_data.status_byte = spi_readwrite(0x01);
+    //received_data.status_byte = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
 
     //// Send first byte, receive length from slave
-    //received_data.buffer[0] = spi_readwrite(0x09);
+    //received_data.buffer[0] = spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
+
+    // NEW
+    received_data.status_byte = spi_transmit(data_to_send.buffer[byte_sent_cnt++]);
+
+    // Send first byte, receive length from slave
+    received_data.buffer[0] = spi_transmit(data_to_send.buffer[byte_sent_cnt++]);
 
     if (0 == data_to_send.buffer[0])
     {
@@ -395,7 +407,7 @@ hal_aci_data_t * hal_aci_tl_poll_get(void)
     // Transmit/receive the rest of the packet 
     for (byte_cnt = 0; byte_cnt < max_bytes; byte_cnt++)
     {
-        received_data.buffer[byte_cnt+1] =  spi_readwrite(data_to_send.buffer[byte_sent_cnt++]);
+        received_data.buffer[byte_cnt+1] =  spi_transmit(data_to_send.buffer[byte_sent_cnt++]);
     }
     // Deassert REQN to indicate end of transmission
     SET_REQN_HIGH();
@@ -407,43 +419,43 @@ hal_aci_data_t * hal_aci_tl_poll_get(void)
     _delay_ms(5); // Delay to allow REQN to stay high for the required amount of time - TODO!
 
   
-  //If there are more ACI commands in the queue, lower the REQN line immediately
-  if (false == m_aci_q_is_empty(&aci_tx_q))
-  {
-      //digitalWrite(HAL_IO_RADIO_REQN, 0);
-      // Set request pin low to indicate to nRF8001 we want to send data
-    	SET_REQN_LOW();
+    //If there are more ACI commands in the queue, lower the REQN line immediately
+    if (false == m_aci_q_is_empty(&aci_tx_q))
+    {
+        //digitalWrite(HAL_IO_RADIO_REQN, 0);
+        // Set request pin low to indicate to nRF8001 we want to send data
+      	SET_REQN_LOW();
 
-    	do
+      	do
+      	{
+      		// Wait for nRF8001 to indicate it is ready by waiting for RDYN - TODO!
+      		//_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+      		//_nop();
+              asm volatile ("nop");
+      	}while(rdynFlag == 0);
+    
+    }
+    
+    //sleep_enable();
+    //attachInterrupt(1, m_rdy_line_handle, LOW);
+
+    /*
+    // Enable interrupts and enter LPM0 so we wait for the RDYN to be
+    // set low by the nRF8001, indicating its ready to receive data
+    	if(nRF8001_RDYN_PINREG & nRF8001_RDYN_PIN)
     	{
-    		// Wait for nRF8001 to indicate it is ready by waiting for RDYN - TODO!
-    		//_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-    		//_nop();
-            asm volatile ("nop");
-    	}while(rdynFlag == 0);
-  
-  }
-  
-  //sleep_enable();
-  //attachInterrupt(1, m_rdy_line_handle, LOW);
+    		do
+    		{
+    			// Wait for nRF8001 to indicate it is ready by waiting for RDYN
+    			_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
+    			_nop();
+    		}while(rdynFlag == 0);
+    	}
+      */
 
-  /*
-  // Enable interrupts and enter LPM0 so we wait for the RDYN to be
-  // set low by the nRF8001, indicating its ready to receive data
-  	if(nRF8001_RDYN_PINREG & nRF8001_RDYN_PIN)
-  	{
-  		do
-  		{
-  			// Wait for nRF8001 to indicate it is ready by waiting for RDYN
-  			_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-  			_nop();
-  		}while(rdynFlag == 0);
-  	}
-    */
-
-  
-  /* valid Rx available or transmit finished*/
-  return (&received_data);
+    
+    /* valid Rx available or transmit finished*/
+    return (&received_data);
 }
 
 // Receive a byte from the nRF8001 by sending
@@ -496,7 +508,7 @@ ISR(INT0_vect)
 	//// Exit from sleep mode upon ISR exit so data can be sent
 	//_BIC_SR_IRQ( LPM0_bits );
 	//__no_operation();
-    asm volatile ("nop");
+    //asm volatile ("nop");
 }
 
 
