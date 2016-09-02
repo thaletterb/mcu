@@ -56,76 +56,6 @@ int main(void)
     resetDevice();
     LED2_CONFIG_OUT;
 
-    //while(1){
-    //    resetDevice();
-    //    // Read the device started event
-    //    if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-    //    {
-    //        do
-    //        {
-    //            // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-    //            //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-    //            //_nop();
-    //            asm volatile ("nop");
-    //        }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-    //    }
-    //    SET_REQN_LOW();     // Once nrf8001 signals ready, request data
-    //    _delay_ms(2);
-    //    spi_transmit(0x00);
-    //    uint8_t packet_length = spi_transmit(0x00); // First byte of aci event is packet length
-    //    if(packet_length < 32)
-    //    {
-    //        for(uint8_t i=0; i<packet_length; i++)
-    //        {
-    //            spi_transmit(0x00);
-    //        }
-    //    }
-    //    SET_REQN_HIGH();    // End transmission
-    //    _delay_ms(2);
-
-    //    // Read the device version
-    //    SET_REQN_LOW();
-    //    if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-    //    {
-    //        do
-    //        {
-    //            // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-    //            //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-    //            //_nop();
-    //            asm volatile ("nop");
-    //        }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-    //    }
-    //    _delay_ms(2);
-    //    spi_transmit(0x01);
-    //    spi_transmit(0x09);
-    //    SET_REQN_HIGH();
-
-    //    if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-    //    {
-    //        do
-    //        {
-    //            // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-    //            //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-    //            //_nop();
-    //            asm volatile ("nop");
-    //        }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-    //    }
-    //    _delay_ms(2);
-
-    //    SET_REQN_LOW();
-    //    _delay_ms(2);
-    //    spi_transmit(0x00);
-    //    packet_length = spi_transmit(0x00);
-    //    if(packet_length < 32){
-    //        for(uint8_t i=0; i<packet_length; i++)
-    //        {
-    //            spi_transmit(0x00);
-    //        }
-    //    }
-    //    SET_REQN_HIGH();
-    //    _delay_ms(1000);
-    //}
-
     _delay_ms(100);
     // Main application loop - never gets to here yet!!!!
     while(1)
@@ -133,7 +63,6 @@ int main(void)
         if(rdynFlag == 1)
         {
             rdynFlag = 0;
-            //PORTB ^= (1<<LED1_PHYSICAL_PIN);
             m_rdy_line_handle();
         }
 
