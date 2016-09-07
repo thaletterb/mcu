@@ -105,5 +105,90 @@ bool lib_aci_event_get(aci_state_t *aci_stat, hal_aci_evt_t *p_aci_evt_data)
   return status;
 }
 
+// Ported from MSP430 UART project
 
+void lib_aci_init(aci_state_t *aci_stat)
+{
+  uint8_t i;
+
+  for (i = 0; i < PIPES_ARRAY_SIZE; i++)
+  {
+    aci_stat->pipes_open_bitmap[i]          = 0;
+    aci_stat->pipes_closed_bitmap[i]        = 0;
+    //aci_cmd_params_open_adv_pipe.pipes[i]   = 0;
+  }
+
+  //removed above line and below lines because those variables dont matter
+
+  /*
+  is_request_operation_pending     = false;
+  is_indicate_operation_pending    = false;
+  is_open_remote_pipe_pending      = false;
+  is_close_remote_pipe_pending     = false;
+  cur_transaction_cmd              = ACI_CMD_INVALID;
+  memorized_rcvd_cmd_opcode        = ACI_CMD_INVALID;
+  memorized_transaction_cmd_opcode = ACI_CMD_INVALID;
+  cx_rf_interval                   = 0;
+  current_slave_latency            = 0;
+  request_operation_pipe           = 0;
+  indicate_operation_pipe          = 0;
+  cur_error_code                   = 0;
+  p_rcvd_evt                       = NULL;
+  */
+
+  p_services_pipe_type_map = aci_stat->aci_setup_info.services_pipe_type_mapping;
+  pipe_count               = aci_stat->aci_setup_info.number_of_pipes;
+  p_setup_msgs             = aci_stat->aci_setup_info.setup_msgs;
+  setup_msgs_count         = aci_stat->aci_setup_info.num_setup_msgs;
+
+  hal_aci_tl_init();
+}
+
+bool lib_aci_connect(uint16_t run_timeout, uint16_t adv_interval) {
+      aci_cmd_params_connect_t aci_cmd_params_connect;
+      aci_cmd_params_connect.timeout      = run_timeout;
+      aci_cmd_params_connect.adv_interval = adv_interval;
+      acil_encode_cmd_connect(&(msg_to_send.buffer[0]), &aci_cmd_params_connect);
+      //maybe look into what's going on over here and optimize for power (timeouts etc)
+      return hal_aci_tl_send(&msg_to_send);
+}
+
+bool lib_aci_is_pipe_available(aci_state_t *aci_stat, uint8_t pipe)
+{
+  uint8_t byte_idx;
+
+  byte_idx = pipe / 8;
+  if (aci_stat->pipes_open_bitmap[byte_idx] & (0x01 << (pipe % 8)))
+  {
+    return(true);
+  }
+  return(false);
+}
+
+bool lib_aci_send_data(uint8_t pipe, uint8_t *p_value, uint8_t size)
+{
+  bool ret_val = false;
+  aci_cmd_params_send_data_t aci_cmd_params_send_data;
+
+
+  if(!((p_services_pipe_type_map[pipe-1].pipe_type == ACI_TX) ||
+      (p_services_pipe_type_map[pipe-1].pipe_type == ACI_TX_ACK)))
+  {
+    return false;
+  }
+
+  if (size > ACI_PIPE_TX_DATA_MAX_LEN)
+  {
+    return false;
+  }
+  {
+      aci_cmd_params_send_data.tx_data.pipe_number = pipe;
+      memcpy(&(aci_cmd_params_send_data.tx_data.aci_data[0]), p_value, size);
+      acil_encode_cmd_send_data(&(msg_to_send.buffer[0]), &aci_cmd_params_send_data, size);
+      //is_cmd_response_expected = false;
+      //Define this??^
+      ret_val = hal_aci_tl_send(&msg_to_send);
+  }
+  return ret_val;
+}
 

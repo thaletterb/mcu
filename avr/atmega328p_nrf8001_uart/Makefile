@@ -19,7 +19,9 @@ OPT = s
 SRC = $(TARGET).c \
 	  ./src/spi.c \
 	  ./src/BLE/hal_aci_tl.c \
-	  ./src/BLE/lib_aci.c
+	  ./src/BLE/lib_aci.c \
+	  ./src/BLE/ble_interface.c \
+	  ./src/BLE/acilib.c
 
 # List Assembler source files here.
 # Make them always end in a capital .S.  Files ending in a lowercase .s

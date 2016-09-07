@@ -425,6 +425,8 @@ hal_aci_data_t * hal_aci_tl_poll_get(void)
         //digitalWrite(HAL_IO_RADIO_REQN, 0);
         // Set request pin low to indicate to nRF8001 we want to send data
       	SET_REQN_LOW();
+        PORTB |= (1<<LED1_PHYSICAL_PIN);
+        
 
       	do
       	{

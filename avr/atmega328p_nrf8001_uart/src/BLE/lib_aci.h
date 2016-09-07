@@ -485,6 +485,16 @@ bool lib_aci_event_get(aci_state_t *aci_stat, hal_aci_evt_t * aci_evt);
 */
 void lib_aci_flush(void);
 
+
+// Added from MSP430 UART port
+bool lib_aci_connect(uint16_t run_timeout, uint16_t adv_interval);
+
+void lib_aci_init(aci_state_t *aci_stat);
+
+bool lib_aci_is_pipe_available(aci_state_t *aci_stat, uint8_t pipe);
+
+bool lib_aci_send_data(uint8_t pipe, uint8_t *p_value, uint8_t size);
+
 //@}
 
 /** @} */

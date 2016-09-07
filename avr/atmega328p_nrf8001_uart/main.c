@@ -16,6 +16,8 @@
 
 #include "config.h"
 
+#include "ble_interface.h"
+
 #define W25Q_SS_PIN 1
 
 #define LOGIC_LOW   0
@@ -59,204 +61,16 @@ int main(void)
 
     _delay_ms(100);
 
-    #ifdef ECHO_TEST
-    while(1){
-        resetDevice();
-        _delay_ms(100);
-
-        // Set request pin low to indicate to nRF8001 we want to send data
-        SET_REQN_LOW();     // Once nrf8001 signals ready, request data
-        if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
+    begin_BLE(&aci_state);
+    while(1)
+    {
+        if(rdynFlag == 1)
         {
-            do
-            {
-                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-                //_nop();
-                asm volatile ("nop");
-            }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
+            rdynFlag = 0;
+            m_rdy_line_handle();
         }
-        _delay_ms(2);
-        spi_transmit(0x00);
-        uint8_t packet_length = spi_transmit(0x00); // First byte of aci event is packet length
-        if(packet_length < 32)
-        {
-            for(uint8_t i=0; i<packet_length; i++)
-            {
-                spi_transmit(0x00);
-            }
-        }
-        SET_REQN_HIGH();    // End transmission
-
-        /** Sent command to enter test mode **/
-        _delay_ms(1);
-        SET_REQN_LOW();     // Send test command
-        if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-        {
-            do
-            {
-                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-                //_nop();
-                asm volatile ("nop");
-            }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-        }
-        _delay_ms(2);
-        spi_transmit(0x02);  // Length mode
-        spi_transmit(0x01);  // Test Mode 
-        spi_transmit(0x02);  // Test mode Packet
-        SET_REQN_HIGH();
-
-        _delay_ms(1);
-        // Set request pin low to indicate to nRF8001 we want to send data
-        SET_REQN_LOW();     // Once nrf8001 signals ready, request data
-        if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-        {
-            do
-            {
-                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-                //_nop();
-                asm volatile ("nop");
-            }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-        }
-        _delay_ms(2);
-        spi_transmit(0x00);
-        packet_length = spi_transmit(0x00); // First byte of aci event is packet length
-        if(packet_length < 32)
-        {
-            for(uint8_t i=0; i<packet_length; i++)
-            {
-                spi_transmit(0x00);
-            }
-        }
-        SET_REQN_HIGH();    // End transmission
-
-        /** Send echo command and test string **/
-        _delay_ms(1);
-        SET_REQN_LOW();     // Send test command
-        if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-        {
-            do
-            {
-                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-                //_nop();
-                asm volatile ("nop");
-            }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-        }
-        _delay_ms(2);
-        spi_transmit(5);  // Length 
-        spi_transmit(0x02);  // Echo 
-        spi_transmit(0x01);  // 
-        spi_transmit(0x02);  // 
-        spi_transmit(0x03);  // 
-        spi_transmit(0x04);  // 
-        SET_REQN_HIGH();
-
-        _delay_ms(1);
-        // Set request pin low to indicate to nRF8001 we want to send data
-        SET_REQN_LOW();     // Once nrf8001 signals ready, request data
-        if(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN))   // RDYN goes low when nrf8001 is ready
-        {
-            do
-            {
-                // Wait for nRF8001 to indicate it is ready by waiting for RDYN
-                //_BIS_SR(LPM0_bits + GIE); // Enter LPM0 w/interrupt
-                //_nop();
-                asm volatile ("nop");
-            }while(NRF8001_RDYN_PIN_INPUT_REG & (1<<NRF8001_RDYN_PIN));
-        }
-        _delay_ms(2);
-        spi_transmit(0x00);
-        packet_length = spi_transmit(0x00); // First byte of aci event is packet length
-        if(packet_length < 32)
-        {
-            for(uint8_t i=0; i<packet_length; i++)
-            {
-                spi_transmit(0x00);
-            }
-        }
-        SET_REQN_HIGH();    // End transmission
-
+        pollACI(&aci_state, &aci_data, &aci_cmd);
     }
-    #endif
-    //while(1)
-    //{
-    //    if(rdynFlag == 1)
-    //    {
-    //        rdynFlag = 0;
-    //        m_rdy_line_handle();
-    //    }
-
-    //    // We enter the if statement only when there is a ACI event available to be processed
-    //    if (lib_aci_event_get(&aci_state, &aci_data))
-    //    {
-    //        aci_evt_t * aci_evt;
-
-    //        aci_evt = &aci_data.evt;
-    //        switch(aci_evt->evt_opcode)
-    //        {
-    //            /**
-    //            As soon as you reset the nRF8001 you will get an ACI Device Started Event
-    //            */
-    //            case ACI_EVT_DEVICE_STARTED:
-    //            {
-    //              PORTB |= (1<<LED1_PHYSICAL_PIN);
-
-    //              aci_state.data_credit_available = aci_evt->params.device_started.credit_available;
-    //              switch(aci_evt->params.device_started.device_mode)
-    //              {
-    //                case ACI_DEVICE_SETUP:
-    //                    //P1OUT |= BIT0;                      // Turn on LED
-    //                    LED2_CONFIG_OUT;
-    //                    SET_LED2_HIGH();
-
-    //                  /**
-    //                  Device is in the setup mode
-    //                  */
-    //                  //Serial.println(F("Evt Device Started: Setup"));
-    //                  aci_cmd.buffer[0] = 2;    //Length of ACI command
-    //                  aci_cmd.buffer[1] = 0x01; //Command - Test
-    //                  aci_cmd.buffer[2] = ACI_TEST_MODE_DTM_UART; //Command parameter
-    //                  hal_aci_tl_send(&aci_cmd);
-    //                  break;
-
-    //                case ACI_DEVICE_TEST:
-    //                  //Serial.println(F("Evt Device Started: Test"));
-    //                  //__no_operation();
-    //                    asm volatile ("nop");
-
-    //                  break;
-    //              }
-    //            }
-    //            break; //ACI Device Started Event
-
-    //          case ACI_EVT_CMD_RSP:
-    //            //If an ACI command response event comes with an error -> stop
-    //            if (ACI_STATUS_SUCCESS != aci_evt->params.cmd_rsp.cmd_status)
-    //            {
-    //              //ACI ReadDynamicData and ACI WriteDynamicData will have status codes of
-    //              //TRANSACTION_CONTINUE and TRANSACTION_COMPLETE
-    //              //all other ACI commands will have status code of ACI_STATUS_SCUCCESS for a successful command
-    //              //Serial.print(F("ACI Command "));
-    //              //Serial.println(aci_evt->params.cmd_rsp.cmd_opcode, HEX);
-    //              //Serial.println(F("Evt Cmd respone: Error. In an while(1); loop"));
-    //              while (1);
-    //            }
-    //            break;
-    //        }
-    //    }
-    //    else
-    //    {
-    //        //Serial.println(F("No ACI Events available"));
-    //        // No event in the ACI Event queue.
-    //        // Arduino can go to sleep
-    //        // Wakeup from sleep from the RDYN line
-    //    }
-
-    //    _delay_ms(10);
-    //}
     return 1;
 }
 
