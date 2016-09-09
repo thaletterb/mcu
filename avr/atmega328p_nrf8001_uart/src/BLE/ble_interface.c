@@ -6,6 +6,7 @@
 #include "hal_aci_tl.h"
 
 #include "util/delay.h"
+#include "hardware.h"
 
 /* Get the service pipe data created in nRFGo Studio */
 #ifdef SERVICES_PIPE_TYPE_MAPPING_CONTENT
@@ -218,6 +219,7 @@ void pollACI(aci_state_t* aci_state, hal_aci_evt_t* aci_data, hal_aci_data_t* ac
 				num_elem_received = num_elems();//this must run before flush!
 				received_array = flush();
                 write(received_array, num_elem_received, aci_state, aci_data, aci_cmd);
+                TOGGLE_LED1;
 				new_data = true;
 				/*
 				if (rx_event)
